@@ -1,0 +1,2313 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador Biomecânico de LPO — Snatch (Arranco)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-dark: #070b14;
+        --panel-bg: rgba(15, 23, 42, 0.85);
+        --border-glow: rgba(56, 189, 248, 0.2);
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: var(--bg-dark);
+        color: #f8fafc;
+        overflow-x: hidden;
+      }
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+      /* Custom Range Slider */
+      input[type="range"] {
+        -webkit-appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          #0ea5e9 0%,
+          #eab308 45%,
+          #ef4444 55%,
+          #a855f7 80%,
+          #10b981 100%
+        );
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 22px;
+        width: 22px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 3px solid #0ea5e9;
+        box-shadow: 0 0 15px rgba(14, 165, 233, 0.9);
+        margin-top: -7px;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+      }
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.18);
+      }
+      .glass-panel {
+        background: var(--panel-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+      }
+      .muscle-row {
+        transition: all 0.2s ease;
+      }
+      .muscle-row:hover,
+      .muscle-row.active {
+        background: rgba(30, 41, 59, 0.9);
+        border-color: rgba(56, 189, 248, 0.5);
+        transform: translateX(3px);
+      }
+      .phase-btn {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .phase-btn.active {
+        background: linear-gradient(
+          135deg,
+          rgba(14, 165, 233, 0.25),
+          rgba(59, 130, 246, 0.15)
+        );
+        border-color: #38bdf8;
+        color: #ffffff;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+      }
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white"
+  >
+    <!-- Top Header -->
+    <header
+      class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30"
+    >
+      <div
+        class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 via-blue-600 to-rose-600 flex items-center justify-center shadow-lg shadow-sky-500/20 border border-white/10"
+          >
+            <svg
+              class="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1
+                class="text-lg sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-400 bg-clip-text text-transparent"
+              >
+                KineLab LPO
+                <span class="font-light text-slate-400">|</span> Snatch
+                (Arranco)
+              </h1>
+              <span
+                class="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30"
+              >
+                EMG Thermal Map
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">
+              Análise Cinemática, Trajetória da Barra e Recrutamento Muscular em
+              Tempo Real
+            </p>
+          </div>
+        </div>
+
+        <!-- View & Overlay Toggles -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Camera Switch -->
+          <div
+            class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800"
+          >
+            <button
+              id="btnViewSide"
+              onclick="setCameraView('side')"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-sky-500 text-white shadow-sm"
+            >
+              Vista Sagital (Lateral)
+            </button>
+            <button
+              id="btnViewFront"
+              onclick="setCameraView('front')"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white"
+            >
+              Vista Coronal (Frontal)
+            </button>
+          </div>
+
+          <!-- Overlay Checkboxes -->
+          <button
+            id="btnTogglePath"
+            onclick="toggleOption('showBarPath')"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5 transition-all"
+          >
+            <span
+              class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"
+            ></span>
+            Curva-S da Barra
+          </button>
+
+          <button
+            id="btnToggleAngles"
+            onclick="toggleOption('showAngles')"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-sky-500/40 bg-sky-500/10 text-sky-300 flex items-center gap-1.5 transition-all"
+          >
+            Ângulos Articulares
+          </button>
+
+          <button
+            id="btnToggleVectors"
+            onclick="toggleOption('showVectors')"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-amber-500/40 bg-amber-500/10 text-amber-300 flex items-center gap-1.5 transition-all"
+          >
+            Vetor de Força (FRS)
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main
+      class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
+    >
+      <!-- LEFT COLUMN: Biomechanical Canvas & Timeline Controls (7 cols) -->
+      <div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+        <!-- Canvas Wrapper -->
+        <div
+          class="relative rounded-2xl overflow-hidden glass-panel border border-slate-800/90 shadow-2xl"
+        >
+          <!-- Top Floating Telemetry Bar inside Canvas -->
+          <div
+            class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none"
+          >
+            <!-- Current Phase Badge -->
+            <div
+              class="bg-slate-950/85 backdrop-blur-md border border-slate-700/70 rounded-xl px-3.5 py-2 flex items-center gap-3 shadow-lg"
+            >
+              <div
+                id="phasePulse"
+                class="w-3 h-3 rounded-full bg-sky-400 shadow-[0_0_12px_#38bdf8]"
+              ></div>
+              <div>
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold"
+                >
+                  Fase Biomecânica Atual
+                </div>
+                <div
+                  id="hudPhaseTitle"
+                  class="text-sm sm:text-base font-bold text-white"
+                >
+                  1. Posição Inicial (Setup)
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Telemetry Pills -->
+            <div class="flex flex-wrap items-center gap-2">
+              <div
+                class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right"
+              >
+                <div class="text-[10px] text-slate-400 uppercase">Joelho</div>
+                <div
+                  id="hudKneeAngle"
+                  class="mono text-sm font-bold text-sky-400"
+                >
+                  68°
+                </div>
+              </div>
+              <div
+                class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right"
+              >
+                <div class="text-[10px] text-slate-400 uppercase">Quadril</div>
+                <div
+                  id="hudHipAngle"
+                  class="mono text-sm font-bold text-amber-400"
+                >
+                  54°
+                </div>
+              </div>
+              <div
+                class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right"
+              >
+                <div class="text-[10px] text-slate-400 uppercase">
+                  Altura Barra
+                </div>
+                <div
+                  id="hudBarHeight"
+                  class="mono text-sm font-bold text-emerald-400"
+                >
+                  0.23m
+                </div>
+              </div>
+              <div
+                class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right"
+              >
+                <div class="text-[10px] text-slate-400 uppercase">
+                  Vel. Vertical
+                </div>
+                <div
+                  id="hudBarVel"
+                  class="mono text-sm font-bold text-rose-400"
+                >
+                  0.00 m/s
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thermal Scale Legend (Bottom Left Inside Canvas) -->
+          <div
+            class="absolute bottom-3 left-3 z-10 bg-slate-950/85 backdrop-blur-md border border-slate-800/80 rounded-xl px-3 py-2 pointer-events-none"
+          >
+            <div
+              class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1"
+            >
+              Escala Térmica de Exigência (EMG %)
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] mono text-slate-400">10% Baixa</span>
+              <div
+                class="w-36 sm:w-44 h-2.5 rounded-full bg-gradient-to-r from-blue-700 via-cyan-400 via-yellow-400 via-orange-500 to-rose-600 shadow-inner"
+              ></div>
+              <span class="text-[10px] mono text-rose-400 font-bold"
+                >100% Pico</span
+              >
+            </div>
+          </div>
+
+          <!-- Selected Muscle Floating Callout -->
+          <div
+            id="muscleCallout"
+            class="hidden absolute bottom-3 right-3 z-10 max-w-xs bg-slate-950/95 backdrop-blur-md border border-sky-500/50 rounded-xl p-3 shadow-xl"
+          >
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span
+                id="calloutMuscleName"
+                class="text-xs font-bold text-sky-400 uppercase tracking-wide"
+                >Quadríceps</span
+              >
+              <span
+                id="calloutMuscleVal"
+                class="mono text-xs font-extrabold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300"
+                >95%</span
+              >
+            </div>
+            <p
+              id="calloutMuscleRole"
+              class="text-[11px] text-slate-300 leading-relaxed"
+            ></p>
+          </div>
+
+          <!-- Main Interactive HTML5 Canvas -->
+          <div
+            class="w-full h-[460px] sm:h-[540px] relative bg-gradient-to-b from-[#070b14] via-[#0b1324] to-[#090d16]"
+          >
+            <canvas
+              id="biomechCanvas"
+              class="w-full h-full block cursor-grab active:cursor-grabbing"
+            ></canvas>
+          </div>
+        </div>
+
+        <!-- Scrubber & Playback Controls Card -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col gap-4">
+          <!-- Scrubber Row -->
+          <div class="flex flex-col gap-1.5">
+            <div
+              class="flex justify-between items-center text-xs text-slate-400 px-1"
+            >
+              <span class="font-medium text-slate-300"
+                >Linha do Tempo Cinemática (Arraste para inspecionar cada
+                milissegundo)</span
+              >
+              <span
+                id="progressLabel"
+                class="mono font-bold text-sky-400 text-sm"
+                >0% (0.00s)</span
+              >
+            </div>
+            <div class="relative flex items-center py-1">
+              <input
+                id="timelineSlider"
+                type="range"
+                min="0"
+                max="1000"
+                value="0"
+                class="w-full z-10"
+                oninput="onSliderInput(this.value)"
+              />
+            </div>
+            <!-- Keyframe Tick Marks -->
+            <div
+              class="relative h-5 w-full text-[10px] text-slate-400 hidden sm:block"
+            >
+              <span
+                style="left: 0%"
+                class="absolute -translate-x-0 cursor-pointer hover:text-white"
+                onclick="jumpToProgress(0)"
+                >0% Setup</span
+              >
+              <span
+                style="left: 20%"
+                class="absolute -translate-x-1/2 cursor-pointer hover:text-white"
+                onclick="jumpToProgress(0.2)"
+                >20% 1º Puxão</span
+              >
+              <span
+                style="left: 38%"
+                class="absolute -translate-x-1/2 cursor-pointer hover:text-white"
+                onclick="jumpToProgress(0.38)"
+                >38% Transição</span
+              >
+              <span
+                style="left: 55%"
+                class="absolute -translate-x-1/2 cursor-pointer hover:text-rose-400 font-semibold text-rose-400/90"
+                onclick="jumpToProgress(0.55)"
+                >55% Tripla Extensão</span
+              >
+              <span
+                style="left: 78%"
+                class="absolute -translate-x-1/2 cursor-pointer hover:text-white"
+                onclick="jumpToProgress(0.78)"
+                >78% Catch (OHS)</span
+              >
+              <span
+                style="left: 100%"
+                class="absolute -translate-x-full cursor-pointer hover:text-white"
+                onclick="jumpToProgress(1.0)"
+                >100% Lockout</span
+              >
+            </div>
+          </div>
+
+          <!-- Transport & Speed Buttons + Phase Quick Select -->
+          <div
+            class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-800/80"
+          >
+            <!-- Play / Pause & Speed -->
+            <div class="flex items-center gap-2">
+              <button
+                id="btnPlayPause"
+                onclick="togglePlay()"
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-sky-500/25 transition-all"
+              >
+                <svg
+                  id="iconPlay"
+                  class="w-4 h-4 hidden"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <svg
+                  id="iconPause"
+                  class="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+                <span id="txtPlayPause">Pausar</span>
+              </button>
+
+              <button
+                onclick="stepFrame(-0.02)"
+                title="Voltar Frame"
+                class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <button
+                onclick="stepFrame(0.02)"
+                title="Avançar Frame"
+                class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+
+              <!-- Speed Selector -->
+              <div
+                class="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-800 ml-1"
+              >
+                <button
+                  onclick="setSpeed(0.2)"
+                  id="spd-0.2"
+                  class="speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono text-slate-400 hover:text-white"
+                >
+                  0.2x
+                </button>
+                <button
+                  onclick="setSpeed(0.45)"
+                  id="spd-0.45"
+                  class="speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono bg-slate-800 text-sky-400 font-bold"
+                >
+                  0.5x
+                </button>
+                <button
+                  onclick="setSpeed(1.0)"
+                  id="spd-1"
+                  class="speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono text-slate-400 hover:text-white"
+                >
+                  1.0x
+                </button>
+              </div>
+            </div>
+
+            <!-- Phase Quick Jump Pills -->
+            <div
+              class="grid grid-cols-3 sm:grid-cols-6 gap-1.5 w-full xl:w-auto"
+            >
+              <button
+                onclick="jumpToProgress(0.0)"
+                id="phaseBtn-0"
+                class="phase-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-800 bg-slate-900/70 text-slate-300 truncate"
+              >
+                1. Saída
+              </button>
+              <button
+                onclick="jumpToProgress(0.2)"
+                id="phaseBtn-1"
+                class="phase-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-800 bg-slate-900/70 text-slate-300 truncate"
+              >
+                2. 1º Puxão
+              </button>
+              <button
+                onclick="jumpToProgress(0.38)"
+                id="phaseBtn-2"
+                class="phase-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-800 bg-slate-900/70 text-slate-300 truncate"
+              >
+                3. Transição
+              </button>
+              <button
+                onclick="jumpToProgress(0.55)"
+                id="phaseBtn-3"
+                class="phase-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-800 bg-slate-900/70 text-slate-300 truncate"
+              >
+                4. 2º Puxão
+              </button>
+              <button
+                onclick="jumpToProgress(0.78)"
+                id="phaseBtn-4"
+                class="phase-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-800 bg-slate-900/70 text-slate-300 truncate"
+              >
+                5. Entrada
+              </button>
+              <button
+                onclick="jumpToProgress(1.0)"
+                id="phaseBtn-5"
+                class="phase-btn px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-800 bg-slate-900/70 text-slate-300 truncate"
+              >
+                6. Final
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Real-Time EMG Muscle Heatmap Dashboard & Phase Analysis (5 cols) -->
+      <div class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+        <!-- Phase Biomechanical Insights Card -->
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-sky-500">
+          <div class="flex items-center justify-between mb-1.5">
+            <span
+              class="text-[11px] font-bold uppercase tracking-wider text-sky-400"
+              >Análise Cinesiológica da Fase</span
+            >
+            <span
+              id="phaseActionType"
+              class="text-[11px] font-semibold px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30"
+              >Ação Concêntrica / Isométrica</span
+            >
+          </div>
+          <h2 id="phaseDetailTitle" class="text-base font-bold text-white mb-1">
+            1. Posição Inicial (Setup / Saída)
+          </h2>
+          <p
+            id="phaseDetailDesc"
+            class="text-xs text-slate-300 leading-relaxed"
+          >
+            Pré-tensão máxima na cadeia posterior e dorsal. O quadril
+            posiciona-se ligeiramente acima dos joelhos, ombros à frente da
+            barra e escápulas deprimidas para garantir rigidez no tronco antes
+            de vencer a inércia da barra.
+          </p>
+        </div>
+
+        <!-- Real-time Muscle Heatmap Bars (EMG Activation) -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col gap-3">
+          <div
+            class="flex items-center justify-between border-b border-slate-800 pb-2.5"
+          >
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                Recrutamento Muscular em Tempo Real
+              </h3>
+              <p class="text-[11px] text-slate-400">
+                Passe o mouse ou clique em um músculo para destacá-lo no boneco
+              </p>
+            </div>
+            <button
+              id="btnClearHighlight"
+              onclick="selectMuscle(null)"
+              class="hidden text-[11px] text-sky-400 hover:underline"
+            >
+              Limpar filtro
+            </button>
+          </div>
+
+          <!-- Dynamic Muscle List Container -->
+          <div
+            id="muscleDashboardList"
+            class="flex flex-col gap-2 max-h-[430px] overflow-y-auto pr-1"
+          >
+            <!-- Populated via JS -->
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      /*************************************************************************
+       * 1. DEFINIÇÃO ANATÔMICA DOS MÚSCULOS E FUNÇÕES BIOMECÂNICAS
+       *************************************************************************/
+      const MUSCLE_GROUPS = [
+        {
+          id: "quads",
+          name: "Quadríceps Femoral",
+          subtitle: "Vasto Lateral, Medial e Reto Femoral",
+          roleByPhase: [
+            "Forte tensão isométrica/concêntrica inicial para quebrar a inércia da barra do solo.",
+            "Ação concêntrica dominante estendendo os joelhos para elevar a barra até a patela.",
+            "Ação excêntrica/isométrica de amortecimento enquanto os joelhos re-flexionam (Scoop).",
+            "EXPLOSÃO MÁXIMA! Extensão violenta dos joelhos gerando impulso vertical na barra.",
+            "Desaceleração excêntrica rápida seguida de estabilização no fundo do Overhead Squat.",
+            "Contração concêntrica potente para erguer o atleta do agachamento profundo até o lockout.",
+          ],
+        },
+        {
+          id: "glutes",
+          name: "Glúteo Máximo e Médio",
+          subtitle: "Extensores e Estabilizadores do Quadril",
+          roleByPhase: [
+            "Estabilização pélvica inicial mantendo o ângulo do tronco constante.",
+            "Ativação moderada assistindo os isquiotibiais na sustentação do quadril.",
+            "Pré-alongamento potente (Ciclo Alongamento-Encurtamento) preparando o quadril para a catapulta.",
+            "PICO DE POTÊNCIA! Extensão explosiva do quadril projetando a pelve contra a barra.",
+            "Estabilização em abdução e rotação externa no fundo da recepção (Catch).",
+            "Extensão final do quadril garantindo o alinhamento completo em pé.",
+          ],
+        },
+        {
+          id: "hamstrings",
+          name: "Isquiotibiais (Posteriores)",
+          subtitle: "Bíceps Femoral, Semitendíneo e Semimembranáceo",
+          roleByPhase: [
+            "Tensão inicial elevada mantendo a pelve ancorada durante a saída.",
+            "Controle da extensão do quadril para impedir que o quadril suba antes dos ombros.",
+            "Transição crítica: tracionam a tíbia e reposicionam a alavanca para a potência máxima.",
+            "Atuação sinergista em alta velocidade na extensão do quadril.",
+            "Rápida flexão ativa puxando o corpo do atleta para baixo da barra (3º Puxão).",
+            "Estabilização posterior do joelho e extensão do quadril na subida.",
+          ],
+        },
+        {
+          id: "erectors",
+          name: "Eretores da Espinha / Lombar",
+          subtitle: "Iliocostal, Longuíssimo e Multífidos",
+          roleByPhase: [
+            "Isometria severa para manter a coluna neutra contra o grande braço de alavanca inicial.",
+            "Sustentação rígida do tronco transmissor de força das pernas para a barra.",
+            "Pico de exigência isométrica enquanto o tronco se verticaliza sob carga.",
+            "Extensão dinâmica do tronco contribuindo para a velocidade terminal da barra.",
+            "Hiper-estabilização isométrica no fundo do agachamento com carga acima da cabeça.",
+            "Manutenção da postura ortostática com a barra travada no plano frontal.",
+          ],
+        },
+        {
+          id: "lats",
+          name: "Latíssimo do Dorso (Dorsal)",
+          subtitle: "Grande Dorsal e Redondo Maior",
+          roleByPhase: [
+            "Ativação firme para deprimir as escápulas e colar a barra às canelas.",
+            'Ação contínua de extensão do ombro ("varrer a barra" para trás em direção ao corpo).',
+            "Máximo engajamento para aproximar a barra do centro de massa no quadril (Scoop).",
+            "Mantém a barra colada ao púbis durante a explosão da Tripla Extensão.",
+            "Estabilização da cintura escapular em rotação externa na recepção.",
+            "Suporte estrutural da caixa torácica no bloqueio aéreo.",
+          ],
+        },
+        {
+          id: "traps",
+          name: "Trapézio (Superior e Médio)",
+          subtitle: "Elevadores e Retratores Escapulares",
+          roleByPhase: [
+            "Tensão postural suportando a tração axial dos braços esticados.",
+            "Sustentação isométrica crescente conforme a barra acelera.",
+            "Preparação escapular para a transferência de momento linear.",
+            "ENCOLHIMENTO EXPLOSIVO (Shrug) no final da Tripla Extensão + início da puxada sob a barra.",
+            "Suporte ativo máximo em elevação e rotação superior da escápula sustentando a barra.",
+            "Isometria intensa mantendo a plataforma escapular travada sob a carga.",
+          ],
+        },
+        {
+          id: "delts",
+          name: "Deltoides (Ombros)",
+          subtitle: "Porções Anterior, Lateral e Posterior",
+          roleByPhase: [
+            "Estabilização da articulação glenoumeral na pegada aberta (Snatch Grip).",
+            "Sinergia com o dorsal para evitar que a barra se afaste do eixo.",
+            "Posicionamento articular preparando a puxada alta.",
+            "Auxílio na puxada vertical rápida após a extensão dos membros inferiores.",
+            "EXIGÊNCIA MÁXIMA! Rotação rápida (Turnover) e travamento isométrico do peso acima da cabeça.",
+            "Sustentação isométrica contínua em flexão/abdução completa até o apito final.",
+          ],
+        },
+        {
+          id: "core",
+          name: "Core / Parede Abdominal",
+          subtitle: "Reto Abdominal, Oblíquos e Transverso",
+          roleByPhase: [
+            "Pressão intra-abdominal (Valsalva) criando um cilindro rígido no tronco.",
+            "Estabilização anti-flexão durante a subida da barra até os joelhos.",
+            "Rígido controle do tronco durante a mudança de direção dos joelhos.",
+            "Transmissão de força dos membros inferiores sem perda de energia e controle de hiperextensão.",
+            "PICO ISOMÉTRICO! Blindagem do tronco ao receber o impacto da barra em agachamento profundo.",
+            "Estabilização global da coluna e pelve durante a recuperação.",
+          ],
+        },
+        {
+          id: "calves",
+          name: "Panturrilhas (Tríceps Sural)",
+          subtitle: "Gastrocnêmio e Sóleo",
+          roleByPhase: [
+            "Equilíbrio da pressão plantar no meio do pé.",
+            "Estabilização do tornozelo enquanto a tíbia recua discretamente.",
+            "Alongamento sob carga conforme os joelhos avançam sobre a barra.",
+            "FLEXÃO PLANTAR EXPLOSIVA! Último elo da Tripla Extensão empurrando o solo.",
+            "Dorsiflexão máxima controlada no fundo do agachamento de recepção.",
+            "Equilíbrio postural com os pés planos no solo.",
+          ],
+        },
+        {
+          id: "arms",
+          name: "Tríceps Braquial e Antebraços",
+          subtitle: "Hook Grip (Pegada Gancho) e Extensores do Cotovelo",
+          roleByPhase: [
+            "Pegada em gancho (Hook Grip) ativa; braços relaxados agindo como cabos de aço.",
+            "Forte isometria nos flexores dos dedos mantendo a barra segura.",
+            "Manutenção da tensão nos punhos na passagem pelos joelhos.",
+            "Guiam a barra próxima ao tronco durante a puxada alta (Turnover).",
+            "TRAVAMENTO (LOCKOUT) VIOLENTO do tríceps estendendo os cotovelos para aparar a barra.",
+            "Cotovelos 100% bloqueados em isometria sustentando a carga acima da cabeça.",
+          ],
+        },
+      ];
+
+      /*************************************************************************
+       * 2. KEYFRAMES CINEMÁTICOS E ATIVAÇÃO EMG (6 FASES DO SNATCH)
+       * Coordenadas normalizadas em relação ao quadril/solo em metros.
+       *************************************************************************/
+      const KEYFRAMES = [
+        {
+          progress: 0.0,
+          phaseIndex: 0,
+          title: "1. Posição Inicial (Setup / Saída)",
+          actionType: "Pré-Tensão & Inércia",
+          desc: "O atleta aplica a pegada aberta (Snatch Grip) com Hook Grip. Quadril ligeiramente acima dos joelhos, ombros à frente da barra, dorsais engajados e pressão no meio dos pés antes de separar a barra do solo.",
+          barHeightM: 0.22,
+          barVel: 0.0,
+          kneeAngle: 68,
+          hipAngle: 54,
+          // Articulações Vista Lateral (X: desvio horizontal do centro do pé, Y: altura a partir da plataforma em unidades de escala)
+          joints: {
+            ankle: { x: 0.0, y: 0.08 },
+            knee: { x: 0.22, y: 0.44 },
+            hip: { x: -0.22, y: 0.56 },
+            shoulder: { x: 0.21, y: 0.88 },
+            elbow: { x: 0.19, y: 0.54 },
+            wrist: { x: 0.17, y: 0.22 },
+            head: { x: 0.28, y: 1.04 },
+          },
+          emg: {
+            quads: 78,
+            glutes: 52,
+            hamstrings: 68,
+            erectors: 82,
+            lats: 74,
+            traps: 42,
+            delts: 30,
+            core: 70,
+            calves: 35,
+            arms: 50,
+          },
+        },
+        {
+          progress: 0.2,
+          phaseIndex: 1,
+          title: "2. Primeiro Puxão (First Pull)",
+          actionType: "Ação Concêntrica Controlada",
+          desc: "Os quadríceps estendem os joelhos empurrando o solo enquanto o ângulo das costas permanece rigorosamente constante. Os dorsais puxam a barra levemente para trás para que ela suba colada às canelas até a altura dos joelhos.",
+          barHeightM: 0.52,
+          barVel: 0.95,
+          kneeAngle: 118,
+          hipAngle: 68,
+          joints: {
+            ankle: { x: 0.0, y: 0.08 },
+            knee: { x: 0.07, y: 0.48 },
+            hip: { x: -0.25, y: 0.72 },
+            shoulder: { x: 0.19, y: 1.05 },
+            elbow: { x: 0.16, y: 0.75 },
+            wrist: { x: 0.12, y: 0.48 },
+            head: { x: 0.26, y: 1.22 },
+          },
+          emg: {
+            quads: 92,
+            glutes: 66,
+            hamstrings: 78,
+            erectors: 88,
+            lats: 86,
+            traps: 50,
+            delts: 38,
+            core: 76,
+            calves: 45,
+            arms: 54,
+          },
+        },
+        {
+          progress: 0.38,
+          phaseIndex: 2,
+          title: "3. Transição (Scoop / Power Position)",
+          actionType: "Ciclo Alongamento-Encurtamento",
+          desc: "A barra ultrapassa os joelhos. O tronco se verticaliza rapidamente enquanto os joelhos re-flexionam e avançam sob a barra (Scoop), encaixando a barra na dobra do quadril (Power Position) para carregar a mola elástica dos extensores.",
+          barHeightM: 0.76,
+          barVel: 1.25,
+          kneeAngle: 108,
+          hipAngle: 112,
+          joints: {
+            ankle: { x: 0.0, y: 0.08 },
+            knee: { x: 0.18, y: 0.47 },
+            hip: { x: -0.08, y: 0.82 },
+            shoulder: { x: 0.11, y: 1.28 },
+            elbow: { x: 0.09, y: 0.98 },
+            wrist: { x: 0.05, y: 0.74 },
+            head: { x: 0.15, y: 1.46 },
+          },
+          emg: {
+            quads: 86,
+            glutes: 84,
+            hamstrings: 88,
+            erectors: 92,
+            lats: 95,
+            traps: 64,
+            delts: 48,
+            core: 84,
+            calves: 62,
+            arms: 58,
+          },
+        },
+        {
+          progress: 0.55,
+          phaseIndex: 3,
+          title: "4. Segundo Puxão (Tripla Extensão Explosiva)",
+          actionType: "Pico de Potência Concêntrica",
+          desc: "EXPLOSÃO MÁXIMA! Quadril, joelhos e tornozelos estendem-se simultaneamente em velocidade máxima, combinados com o encolhimento violento do trapézio. É o momento de maior geração de potência humana e pico térmico na cadeia extensora.",
+          barHeightM: 1.12,
+          barVel: 2.15,
+          kneeAngle: 174,
+          hipAngle: 184,
+          joints: {
+            ankle: { x: 0.02, y: 0.15 }, // Ponta dos pés (flexão plantar)
+            knee: { x: 0.03, y: 0.55 },
+            hip: { x: 0.06, y: 0.98 },
+            shoulder: { x: -0.02, y: 1.5 },
+            elbow: { x: 0.08, y: 1.32 }, // Cotovelos subindo no High Pull
+            wrist: { x: 0.05, y: 1.06 },
+            head: { x: 0.0, y: 1.67 },
+          },
+          emg: {
+            quads: 100,
+            glutes: 100,
+            hamstrings: 94,
+            erectors: 95,
+            lats: 82,
+            traps: 100,
+            delts: 85,
+            core: 90,
+            calves: 100,
+            arms: 78,
+          },
+        },
+        {
+          progress: 0.78,
+          phaseIndex: 4,
+          title: "5. Terceiro Puxão e Entrada (Turnover & Catch)",
+          actionType: "Rotação Rápida & Frenagem Isométrica",
+          desc: "O atleta puxa o próprio corpo ativamente para baixo da barra e gira os punhos/cotovelos (Turnover), recepcionando a barra com os braços travados no fundo do agachamento (Overhead Squat). Deltoides, Tríceps, Trapézio e Core atingem exigência extrema.",
+          barHeightM: 1.26,
+          barVel: -0.15,
+          kneeAngle: 52,
+          hipAngle: 56,
+          joints: {
+            ankle: { x: 0.0, y: 0.08 },
+            knee: { x: 0.25, y: 0.42 },
+            hip: { x: -0.2, y: 0.4 },
+            shoulder: { x: 0.02, y: 0.86 },
+            elbow: { x: 0.03, y: 1.12 },
+            wrist: { x: 0.04, y: 1.35 },
+            head: { x: 0.06, y: 0.98 },
+          },
+          emg: {
+            quads: 90,
+            glutes: 86,
+            hamstrings: 64,
+            erectors: 94,
+            lats: 80,
+            traps: 96,
+            delts: 100,
+            core: 98,
+            calves: 72,
+            arms: 98,
+          },
+        },
+        {
+          progress: 1.0,
+          phaseIndex: 5,
+          title: "6. Recuperação e Finalização (Recovery / Lockout)",
+          actionType: "Subida Concêntrica & Estabilização",
+          desc: "Com a cintura escapular, tríceps e core blindando a barra acima do centro de gravidade, os quadríceps e glúteos estendem os membros inferiores até a posição ortostática completa com controle total.",
+          barHeightM: 1.88,
+          barVel: 0.0,
+          kneeAngle: 178,
+          hipAngle: 179,
+          joints: {
+            ankle: { x: 0.0, y: 0.08 },
+            knee: { x: 0.01, y: 0.51 },
+            hip: { x: 0.0, y: 0.94 },
+            shoulder: { x: 0.0, y: 1.42 },
+            elbow: { x: 0.01, y: 1.68 },
+            wrist: { x: 0.02, y: 1.92 },
+            head: { x: 0.02, y: 1.56 },
+          },
+          emg: {
+            quads: 68,
+            glutes: 72,
+            hamstrings: 48,
+            erectors: 76,
+            lats: 72,
+            traps: 90,
+            delts: 94,
+            core: 86,
+            calves: 50,
+            arms: 92,
+          },
+        },
+      ];
+
+      /*************************************************************************
+       * 3. ESTADO DA APLICAÇÃO
+       *************************************************************************/
+      const state = {
+        progress: 0.0, // 0.0 a 1.0
+        isPlaying: true,
+        speed: 0.45, // Velocidade padrão em câmera lenta didática
+        cameraView: "side", // 'side' | 'front'
+        showBarPath: true,
+        showAngles: true,
+        showVectors: true,
+        selectedMuscle: null,
+        hoveredMuscle: null,
+        lastTimestamp: 0,
+      };
+
+      // Pré-calcula a trajetória completa da barra para o rastro em curva-S
+      const precomputedBarPath = [];
+
+      /*************************************************************************
+       * 4. FUNÇÕES MATEMÁTICAS DE INTERPOLAÇÃO E MAPA DE CALOR (HEATMAP)
+       *************************************************************************/
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      // Interpolação suave (Smoothstep misturado com linear para resposta natural)
+      function smoothFactor(t) {
+        const s = t * t * (3 - 2 * t);
+        return lerp(t, s, 0.55);
+      }
+
+      // Retorna os dados interpolados para qualquer ponto p entre 0.0 e 1.0
+      function getInterpolatedState(p) {
+        p = Math.max(0, Math.min(1, p));
+        let k0 = KEYFRAMES[0];
+        let k1 = KEYFRAMES[KEYFRAMES.length - 1];
+
+        for (let i = 0; i < KEYFRAMES.length - 1; i++) {
+          if (p >= KEYFRAMES[i].progress && p <= KEYFRAMES[i + 1].progress) {
+            k0 = KEYFRAMES[i];
+            k1 = KEYFRAMES[i + 1];
+            break;
+          }
+        }
+
+        const span = k1.progress - k0.progress || 1;
+        const rawT = (p - k0.progress) / span;
+        const t = smoothFactor(rawT);
+
+        // Interpolar articulações
+        const joints = {};
+        for (const jName in k0.joints) {
+          joints[jName] = {
+            x: lerp(k0.joints[jName].x, k1.joints[jName].x, t),
+            y: lerp(k0.joints[jName].y, k1.joints[jName].y, t),
+          };
+        }
+
+        // Adicionar curvatura S realista à barra (wrist) durante as fases
+        // No 2º puxão a barra toca o quadril e no turnover faz o loop suave
+        const emg = {};
+        for (const mId in k0.emg) {
+          emg[mId] = Math.round(lerp(k0.emg[mId], k1.emg[mId], t));
+        }
+
+        // Fase ativa baseada na proximidade
+        const activeKeyframe = rawT < 0.5 ? k0 : k1;
+
+        return {
+          progress: p,
+          phaseIndex: activeKeyframe.phaseIndex,
+          title: activeKeyframe.title,
+          actionType: activeKeyframe.actionType,
+          desc: activeKeyframe.desc,
+          barHeightM: lerp(k0.barHeightM, k1.barHeightM, t),
+          barVel: lerp(k0.barVel, k1.barVel, t),
+          kneeAngle: Math.round(lerp(k0.kneeAngle, k1.kneeAngle, t)),
+          hipAngle: Math.round(lerp(k0.hipAngle, k1.hipAngle, t)),
+          joints,
+          emg,
+        };
+      }
+
+      // Converte porcentagem EMG (0-100) em cor térmica RGBA vibrante
+      function getThermalColor(percent, alpha = 1.0) {
+        const p = Math.max(0, Math.min(100, percent)) / 100;
+        // Stops:
+        // 0.00 -> Azul Profundo (30, 64, 175)
+        // 0.35 -> Ciano (6, 182, 212)
+        // 0.60 -> Amarelo (234, 179, 8)
+        // 0.80 -> Laranja Intenso (249, 115, 22)
+        // 1.00 -> Vermelho/Magenta Incandescente (255, 20, 85)
+        let r, g, b;
+        if (p < 0.35) {
+          const t = p / 0.35;
+          r = lerp(30, 6, t);
+          g = lerp(64, 182, t);
+          b = lerp(175, 212, t);
+        } else if (p < 0.6) {
+          const t = (p - 0.35) / 0.25;
+          r = lerp(6, 234, t);
+          g = lerp(182, 179, t);
+          b = lerp(212, 8, t);
+        } else if (p < 0.82) {
+          const t = (p - 0.6) / 0.22;
+          r = lerp(234, 249, t);
+          g = lerp(179, 115, t);
+          b = lerp(8, 22, t);
+        } else {
+          const t = (p - 0.82) / 0.18;
+          r = lerp(249, 255, t);
+          g = lerp(115, 18, t);
+          b = lerp(22, 78, t);
+        }
+        return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${alpha})`;
+      }
+
+      /*************************************************************************
+       * 5. DESENHO GEOMÉTRICO ANATÔMICO E RENDERIZAÇÃO NO CANVAS
+       *************************************************************************/
+      const canvas = document.getElementById("biomechCanvas");
+      const ctx = canvas.getContext("2d");
+
+      function buildPrecomputedBarPath() {
+        precomputedBarPath.length = 0;
+        const steps = 120;
+        for (let i = 0; i <= steps; i++) {
+          const p = i / steps;
+          const st = getInterpolatedState(p);
+          precomputedBarPath.push({
+            p,
+            x: st.joints.wrist.x,
+            y: st.joints.wrist.y,
+            vel: st.barVel,
+          });
+        }
+      }
+
+      // Desenha um feixe muscular fusiforme (barriga muscular orgânica com estrias e brilho térmico)
+      function drawMuscleBelly(
+        ctx,
+        x1,
+        y1,
+        x2,
+        y2,
+        thicknessStart,
+        thicknessMid,
+        thicknessEnd,
+        offsetPerp,
+        muscleId,
+        emgVal,
+      ) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) return;
+
+        const angle = Math.atan2(dy, dx);
+        const activeFilter = state.selectedMuscle || state.hoveredMuscle;
+        const isHighlighted = activeFilter === muscleId;
+        const isDimmed = activeFilter && activeFilter !== muscleId;
+
+        const alpha = isDimmed ? 0.22 : 0.95;
+        const baseColor = getThermalColor(emgVal, alpha);
+        const coreColor = getThermalColor(Math.min(100, emgVal + 14), alpha);
+
+        ctx.save();
+        ctx.translate(x1, y1);
+        ctx.rotate(angle);
+
+        // Sombra / Glow térmico proporcional à ativação
+        if (!isDimmed && (emgVal > 75 || isHighlighted)) {
+          ctx.shadowColor = isHighlighted
+            ? "#38bdf8"
+            : getThermalColor(emgVal, 0.9);
+          ctx.shadowBlur = isHighlighted ? 22 : (emgVal - 65) * 0.65;
+        }
+
+        const midX = len * 0.5;
+        const yTopStart = offsetPerp - thicknessStart * 0.5;
+        const yBotStart = offsetPerp + thicknessStart * 0.5;
+        const yTopMid = offsetPerp - thicknessMid;
+        const yBotMid = offsetPerp + thicknessMid;
+        const yTopEnd = offsetPerp - thicknessEnd * 0.5;
+        const yBotEnd = offsetPerp + thicknessEnd * 0.5;
+
+        ctx.beginPath();
+        ctx.moveTo(0, offsetPerp);
+        ctx.bezierCurveTo(
+          len * 0.18,
+          yTopStart,
+          midX,
+          yTopMid,
+          len,
+          offsetPerp,
+        );
+        ctx.bezierCurveTo(midX, yBotMid, len * 0.18, yBotStart, 0, offsetPerp);
+        ctx.closePath();
+
+        // Preenchimento em gradiente radial/linear simulando volume 3D
+        const grad = ctx.createLinearGradient(0, yTopMid, 0, yBotMid);
+        grad.addColorStop(0, baseColor);
+        grad.addColorStop(0.5, coreColor);
+        grad.addColorStop(1, baseColor);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Contorno de definição anatômica
+        ctx.lineWidth = isHighlighted ? 2.4 : 1.1;
+        ctx.strokeStyle = isHighlighted
+          ? "#ffffff"
+          : isDimmed
+            ? "rgba(148,163,184,0.12)"
+            : "rgba(255,255,255,0.28)";
+        ctx.stroke();
+
+        // Fibras musculares sutis internas
+        if (!isDimmed && thicknessMid > 6) {
+          ctx.beginPath();
+          ctx.moveTo(len * 0.12, offsetPerp);
+          ctx.quadraticCurveTo(
+            midX,
+            offsetPerp - thicknessMid * 0.28,
+            len * 0.88,
+            offsetPerp,
+          );
+          ctx.moveTo(len * 0.12, offsetPerp);
+          ctx.quadraticCurveTo(
+            midX,
+            offsetPerp + thicknessMid * 0.28,
+            len * 0.88,
+            offsetPerp,
+          );
+          ctx.lineWidth = 0.7;
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      // Desenha estrutura óssea de base / articulação
+      function drawBoneSegment(ctx, p1, p2, width) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Renderiza o Cenário de Laboratório e Plataforma de LPO
+      function drawEnvironment(ctx, width, height, originX, floorY, scale) {
+        ctx.save();
+
+        // Grade cinemática de fundo
+        const gridStep = scale * 0.25; // A cada 25cm reais
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(51, 65, 85, 0.22)";
+
+        for (let x = originX % gridStep; x < width; x += gridStep) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, floorY);
+          ctx.stroke();
+        }
+        for (let y = floorY; y > 0; y -= gridStep) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        // Régua de altura vertical na esquerda
+        ctx.fillStyle = "rgba(148, 163, 184, 0.45)";
+        ctx.font = '10px "JetBrains Mono", monospace';
+        for (let m = 0.5; m <= 2.0; m += 0.5) {
+          const yPos = floorY - m * scale;
+          ctx.fillText(`${m.toFixed(1)}m`, 14, yPos - 4);
+          ctx.beginPath();
+          ctx.moveTo(10, yPos);
+          ctx.lineTo(42, yPos);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+          ctx.stroke();
+        }
+
+        // Eixo de referência vertical (Linha de Centro de Massa / Meio do Pé)
+        ctx.save();
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(originX, floorY);
+        ctx.lineTo(originX, floorY - scale * 2.15);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.25)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // Plataforma Oficial de LPO em Perspectiva
+        const platW = scale * 1.6;
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(0, floorY, width, height - floorY);
+
+        const platGrad = ctx.createLinearGradient(
+          originX - platW / 2,
+          floorY,
+          originX + platW / 2,
+          floorY,
+        );
+        platGrad.addColorStop(0, "rgba(14, 165, 233, 0.05)");
+        platGrad.addColorStop(0.5, "rgba(56, 189, 248, 0.28)");
+        platGrad.addColorStop(1, "rgba(14, 165, 233, 0.05)");
+        ctx.fillStyle = platGrad;
+        ctx.fillRect(originX - platW / 2, floorY, platW, 8);
+
+        ctx.beginPath();
+        ctx.moveTo(0, floorY);
+        ctx.lineTo(width, floorY);
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // Renderiza o Vetor de Força de Reação do Solo (FRS)
+      function drawForceVector(ctx, originX, floorY, scale, interp) {
+        if (!state.showVectors) return;
+        // Calcula magnitude baseada na potência dos membros inferiores
+        const forceMag =
+          (interp.emg.quads * 0.45 +
+            interp.emg.glutes * 0.35 +
+            interp.emg.calves * 0.2) /
+          100;
+        const arrowHeight = scale * (0.35 + forceMag * 0.75);
+
+        ctx.save();
+        const x = originX;
+        const yStart = floorY;
+        const yEnd = floorY - arrowHeight;
+
+        const grad = ctx.createLinearGradient(x, yStart, x, yEnd);
+        grad.addColorStop(0, "rgba(245, 158, 11, 0.1)");
+        grad.addColorStop(1, "rgba(245, 158, 11, 0.85)");
+
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 4;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, yStart);
+        ctx.lineTo(x, yEnd);
+        ctx.stroke();
+
+        // Ponta da seta
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#fbbf24";
+        ctx.beginPath();
+        ctx.moveTo(x, yEnd - 8);
+        ctx.lineTo(x - 6, yEnd + 4);
+        ctx.lineTo(x + 6, yEnd + 4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.fillText(
+          `FRS ${(forceMag * 2.8).toFixed(1)}x PC`,
+          x + 10,
+          yEnd + 4,
+        );
+        ctx.restore();
+      }
+
+      // Renderiza o Manequim Anatômico em VISTA LATERAL (Sagital)
+      function drawMannequinSideView(ctx, originX, floorY, scale, interp) {
+        const j = {};
+        for (const k in interp.joints) {
+          j[k] = {
+            x: originX + interp.joints[k].x * scale,
+            y: floorY - interp.joints[k].y * scale,
+          };
+        }
+        const emg = interp.emg;
+
+        // 1. PÉ E SAPATILHA DE LPO
+        ctx.save();
+        ctx.fillStyle = "#334155";
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(j.ankle.x - scale * 0.06, floorY);
+        ctx.lineTo(j.ankle.x + scale * 0.15, floorY);
+        ctx.quadraticCurveTo(
+          j.ankle.x + scale * 0.16,
+          j.ankle.y,
+          j.ankle.x + scale * 0.04,
+          j.ankle.y,
+        );
+        ctx.lineTo(j.ankle.x - scale * 0.05, j.ankle.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. ESTRUTURA ÓSSEA INTERNA
+        drawBoneSegment(ctx, j.ankle, j.knee, scale * 0.05);
+        drawBoneSegment(ctx, j.knee, j.hip, scale * 0.065);
+        drawBoneSegment(ctx, j.hip, j.shoulder, scale * 0.08);
+        drawBoneSegment(ctx, j.shoulder, j.elbow, scale * 0.045);
+        drawBoneSegment(ctx, j.elbow, j.wrist, scale * 0.04);
+
+        // 3. CABEÇA E PESCOÇO COM CAPACETE BIOMECÂNICO
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(j.shoulder.x, j.shoulder.y);
+        ctx.lineTo(j.head.x, j.head.y);
+        ctx.lineWidth = scale * 0.055;
+        ctx.strokeStyle = "#475569";
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Crânio
+        ctx.beginPath();
+        ctx.arc(
+          j.head.x,
+          j.head.y - scale * 0.02,
+          scale * 0.078,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fillStyle = "#1e293b";
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#64748b";
+        ctx.stroke();
+
+        // Visor ocular direção frontal (direita)
+        ctx.beginPath();
+        ctx.arc(
+          j.head.x + scale * 0.055,
+          j.head.y - scale * 0.025,
+          scale * 0.018,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+        ctx.restore();
+
+        // 4. GRUPAMENTOS MUSCULARES (Desenhados em camadas anatômicas)
+
+        // Panturrilha (Gastrocnêmio e Sóleo - posterior da tíbia)
+        drawMuscleBelly(
+          ctx,
+          j.knee.x,
+          j.knee.y,
+          j.ankle.x,
+          j.ankle.y,
+          scale * 0.03,
+          scale * 0.065,
+          scale * 0.015,
+          scale * 0.032,
+          "calves",
+          emg.calves,
+        );
+
+        // Isquiotibiais (Posterior da coxa)
+        drawMuscleBelly(
+          ctx,
+          j.hip.x,
+          j.hip.y,
+          j.knee.x,
+          j.knee.y,
+          scale * 0.045,
+          scale * 0.075,
+          scale * 0.03,
+          scale * 0.038,
+          "hamstrings",
+          emg.hamstrings,
+        );
+
+        // Quadríceps Femoral (Anterior da coxa - muito volumoso)
+        drawMuscleBelly(
+          ctx,
+          j.hip.x,
+          j.hip.y,
+          j.knee.x,
+          j.knee.y,
+          scale * 0.05,
+          scale * 0.095,
+          scale * 0.038,
+          -scale * 0.038,
+          "quads",
+          emg.quads,
+        );
+
+        // Glúteo Máximo ( Cápsula posterior do quadril )
+        const gluteEnd = {
+          x: lerp(j.hip.x, j.knee.x, 0.32),
+          y: lerp(j.hip.y, j.knee.y, 0.32),
+        };
+        drawMuscleBelly(
+          ctx,
+          j.hip.x - scale * 0.02,
+          j.hip.y - scale * 0.04,
+          gluteEnd.x,
+          gluteEnd.y,
+          scale * 0.07,
+          scale * 0.095,
+          scale * 0.04,
+          scale * 0.048,
+          "glutes",
+          emg.glutes,
+        );
+
+        // Core / Parede Abdominal (Anterior do tronco)
+        drawMuscleBelly(
+          ctx,
+          j.shoulder.x,
+          j.shoulder.y,
+          j.hip.x,
+          j.hip.y,
+          scale * 0.06,
+          scale * 0.082,
+          scale * 0.065,
+          -scale * 0.042,
+          "core",
+          emg.core,
+        );
+
+        // Eretores da Espinha / Lombar (Coluna posterior profunda)
+        drawMuscleBelly(
+          ctx,
+          j.shoulder.x,
+          j.shoulder.y,
+          j.hip.x,
+          j.hip.y,
+          scale * 0.045,
+          scale * 0.072,
+          scale * 0.06,
+          scale * 0.042,
+          "erectors",
+          emg.erectors,
+        );
+
+        // Latíssimo do Dorso (Grande Dorsal - conecta ombro/úmero à crista ilíaca)
+        const midTorso = {
+          x: lerp(j.shoulder.x, j.hip.x, 0.72),
+          y: lerp(j.shoulder.y, j.hip.y, 0.72),
+        };
+        drawMuscleBelly(
+          ctx,
+          j.shoulder.x,
+          j.shoulder.y,
+          midTorso.x,
+          midTorso.y,
+          scale * 0.04,
+          scale * 0.085,
+          scale * 0.03,
+          scale * 0.015,
+          "lats",
+          emg.lats,
+        );
+
+        // Trapézio Superior/Médio (Nuca até acrômio/escápula)
+        drawMuscleBelly(
+          ctx,
+          j.head.x - scale * 0.02,
+          j.head.y + scale * 0.02,
+          j.shoulder.x - scale * 0.03,
+          j.shoulder.y + scale * 0.04,
+          scale * 0.03,
+          scale * 0.068,
+          scale * 0.05,
+          scale * 0.015,
+          "traps",
+          emg.traps,
+        );
+
+        // Braço e Antebraço (Tríceps + Extensores/Pegada)
+        drawMuscleBelly(
+          ctx,
+          j.shoulder.x,
+          j.shoulder.y,
+          j.elbow.x,
+          j.elbow.y,
+          scale * 0.045,
+          scale * 0.062,
+          scale * 0.035,
+          0,
+          "arms",
+          emg.arms,
+        );
+        drawMuscleBelly(
+          ctx,
+          j.elbow.x,
+          j.elbow.y,
+          j.wrist.x,
+          j.wrist.y,
+          scale * 0.038,
+          scale * 0.048,
+          scale * 0.025,
+          0,
+          "arms",
+          emg.arms,
+        );
+
+        // Deltoide (Calota esférica/gota sobre o ombro)
+        const deltEnd = {
+          x: lerp(j.shoulder.x, j.elbow.x, 0.38),
+          y: lerp(j.shoulder.y, j.elbow.y, 0.38),
+        };
+        drawMuscleBelly(
+          ctx,
+          j.shoulder.x,
+          j.shoulder.y - scale * 0.02,
+          deltEnd.x,
+          deltEnd.y,
+          scale * 0.075,
+          scale * 0.082,
+          scale * 0.03,
+          0,
+          "delts",
+          emg.delts,
+        );
+
+        // 5. MARCADORES DE ARTICULAÇÃO CINEMÁTICA E ÂNGULOS
+        const jointList = [
+          "ankle",
+          "knee",
+          "hip",
+          "shoulder",
+          "elbow",
+          "wrist",
+        ];
+        for (const jName of jointList) {
+          const pt = j[jName];
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#0f172a";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#38bdf8";
+          ctx.stroke();
+        }
+
+        // Arcos de Ângulo do Joelho e Quadril
+        if (state.showAngles) {
+          ctx.save();
+          ctx.font = 'bold 11px "JetBrains Mono", monospace';
+
+          // Label Joelho
+          ctx.fillStyle = "#38bdf8";
+          ctx.beginPath();
+          ctx.arc(j.knee.x, j.knee.y, 18, 0, Math.PI * 1.3);
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.55)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.fillText(`${interp.kneeAngle}°`, j.knee.x + 22, j.knee.y + 4);
+
+          // Label Quadril
+          ctx.fillStyle = "#fbbf24";
+          ctx.beginPath();
+          ctx.arc(j.hip.x, j.hip.y, 18, -Math.PI * 0.4, Math.PI * 0.5);
+          ctx.strokeStyle = "rgba(251, 191, 36, 0.55)";
+          ctx.stroke();
+          ctx.fillText(`${interp.hipAngle}°`, j.hip.x - 46, j.hip.y + 4);
+          ctx.restore();
+        }
+
+        // 6. TRAJETÓRIA DA BARRA (Curva-S)
+        if (state.showBarPath && precomputedBarPath.length > 0) {
+          ctx.save();
+          // Trilha completa pontilhada sutil
+          ctx.beginPath();
+          for (let i = 0; i < precomputedBarPath.length; i++) {
+            const bx = originX + precomputedBarPath[i].x * scale;
+            const by = floorY - precomputedBarPath[i].y * scale;
+            if (i === 0) ctx.moveTo(bx, by);
+            else ctx.lineTo(bx, by);
+          }
+          ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Trilha ativa brilhante até o momento atual
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          const maxIdx = Math.floor(
+            interp.progress * (precomputedBarPath.length - 1),
+          );
+          for (let i = 0; i <= maxIdx; i++) {
+            const bx = originX + precomputedBarPath[i].x * scale;
+            const by = floorY - precomputedBarPath[i].y * scale;
+            if (i === 0) ctx.moveTo(bx, by);
+            else ctx.lineTo(bx, by);
+          }
+          ctx.strokeStyle = "#10b981";
+          ctx.shadowColor = "#10b981";
+          ctx.shadowBlur = 12;
+          ctx.lineWidth = 3.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 7. BARRA OLÍMPICA E ANILHAS (Bumper Plates na vista lateral = discos circulares translúcidos)
+        const barPt = j.wrist;
+        const plateRadius = scale * 0.225; // Diâmetro oficial IWF 450mm => raio 22.5cm
+
+        ctx.save();
+        // Anilha de 25kg (Vermelha/Azul Translúcida para não esconder a mão e o rosto)
+        const plateGrad = ctx.createRadialGradient(
+          barPt.x,
+          barPt.y,
+          scale * 0.03,
+          barPt.x,
+          barPt.y,
+          plateRadius,
+        );
+        plateGrad.addColorStop(0, "rgba(226, 232, 240, 0.9)");
+        plateGrad.addColorStop(0.22, "rgba(15, 23, 42, 0.85)");
+        plateGrad.addColorStop(0.25, "rgba(239, 68, 68, 0.38)");
+        plateGrad.addColorStop(0.88, "rgba(220, 38, 38, 0.48)");
+        plateGrad.addColorStop(1, "rgba(248, 113, 113, 0.85)");
+
+        ctx.beginPath();
+        ctx.arc(barPt.x, barPt.y, plateRadius, 0, Math.PI * 2);
+        ctx.fillStyle = plateGrad;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "rgba(248, 113, 113, 0.85)";
+        ctx.stroke();
+
+        // Anel interno metálico IWF
+        ctx.beginPath();
+        ctx.arc(barPt.x, barPt.y, plateRadius * 0.32, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(226, 232, 240, 0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Ponta do eixo da barra (Manga cromada)
+        ctx.beginPath();
+        ctx.arc(barPt.x, barPt.y, scale * 0.025, 0, Math.PI * 2);
+        ctx.fillStyle = "#f8fafc";
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Renderiza o Manequim Anatômico em VISTA FRONTAL (Coronal Simétrica)
+      function drawMannequinFrontView(ctx, originX, floorY, scale, interp) {
+        const yAnkle = floorY - interp.joints.ankle.y * scale;
+        const yKnee = floorY - interp.joints.knee.y * scale;
+        const yHip = floorY - interp.joints.hip.y * scale;
+        const yShoulder = floorY - interp.joints.shoulder.y * scale;
+        const yElbow = floorY - interp.joints.elbow.y * scale;
+        const yWrist = floorY - interp.joints.wrist.y * scale;
+        const yHead = floorY - interp.joints.head.y * scale;
+
+        const emg = interp.emg;
+
+        // Abertura dos joelhos varia conforme o agachamento
+        const kneeFlare = ((180 - interp.kneeAngle) / 120) * 0.11;
+        const footX = 0.16 * scale;
+        const kneeX = (0.17 + kneeFlare) * scale;
+        const hipX = 0.12 * scale;
+        const shoulderX = 0.21 * scale;
+        const elbowX = 0.36 * scale;
+        const wristX = 0.5 * scale; // Snatch Grip ampla!
+
+        // Pés direito e esquerdo
+        [-1, 1].forEach((side) => {
+          ctx.fillStyle = "#334155";
+          ctx.beginPath();
+          ctx.roundRect(
+            originX + side * footX - scale * 0.045,
+            floorY - scale * 0.06,
+            scale * 0.09,
+            scale * 0.06,
+            4,
+          );
+          ctx.fill();
+        });
+
+        // Cabeça e Pescoço central
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(originX, yHead - scale * 0.02, scale * 0.075, 0, Math.PI * 2);
+        ctx.fillStyle = "#1e293b";
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#64748b";
+        ctx.stroke();
+        ctx.restore();
+
+        // Eretores e Core Central
+        drawMuscleBelly(
+          ctx,
+          originX,
+          yShoulder,
+          originX,
+          yHip,
+          scale * 0.16,
+          scale * 0.18,
+          scale * 0.15,
+          0,
+          "erectors",
+          emg.erectors,
+        );
+        drawMuscleBelly(
+          ctx,
+          originX,
+          yShoulder + scale * 0.05,
+          originX,
+          yHip,
+          scale * 0.11,
+          scale * 0.13,
+          scale * 0.1,
+          0,
+          "core",
+          emg.core,
+        );
+
+        // Simetria Bilateral (Esquerda e Direita)
+        [-1, 1].forEach((side) => {
+          const ax = originX + side * footX;
+          const kx = originX + side * kneeX;
+          const hx = originX + side * hipX;
+          const sx = originX + side * shoulderX;
+          const ex = originX + side * elbowX;
+          const wx = originX + side * wristX;
+
+          // Ossos
+          drawBoneSegment(
+            ctx,
+            { x: ax, y: yAnkle },
+            { x: kx, y: yKnee },
+            scale * 0.045,
+          );
+          drawBoneSegment(
+            ctx,
+            { x: kx, y: yKnee },
+            { x: hx, y: yHip },
+            scale * 0.055,
+          );
+          drawBoneSegment(
+            ctx,
+            { x: sx, y: yShoulder },
+            { x: ex, y: yElbow },
+            scale * 0.04,
+          );
+          drawBoneSegment(
+            ctx,
+            { x: ex, y: yElbow },
+            { x: wx, y: yWrist },
+            scale * 0.035,
+          );
+
+          // Panturrilha
+          drawMuscleBelly(
+            ctx,
+            kx,
+            yKnee,
+            ax,
+            yAnkle,
+            scale * 0.045,
+            scale * 0.072,
+            scale * 0.025,
+            0,
+            "calves",
+            emg.calves,
+          );
+
+          // Isquiotibiais / Adutores internos
+          drawMuscleBelly(
+            ctx,
+            hx - side * scale * 0.02,
+            yHip,
+            kx - side * scale * 0.02,
+            yKnee,
+            scale * 0.05,
+            scale * 0.065,
+            scale * 0.03,
+            0,
+            "hamstrings",
+            emg.hamstrings,
+          );
+
+          // Quadríceps
+          drawMuscleBelly(
+            ctx,
+            hx,
+            yHip,
+            kx,
+            yKnee,
+            scale * 0.07,
+            scale * 0.105,
+            scale * 0.045,
+            side * scale * 0.01,
+            "quads",
+            emg.quads,
+          );
+
+          // Glúteo Médio/Máximo Lateral
+          drawMuscleBelly(
+            ctx,
+            hx,
+            yHip - scale * 0.04,
+            hx + side * scale * 0.03,
+            yHip + scale * 0.08,
+            scale * 0.06,
+            scale * 0.075,
+            scale * 0.04,
+            0,
+            "glutes",
+            emg.glutes,
+          );
+
+          // Latíssimo do Dorso ("Asas" laterais do tronco)
+          drawMuscleBelly(
+            ctx,
+            sx,
+            yShoulder,
+            hx,
+            yHip - scale * 0.03,
+            scale * 0.05,
+            scale * 0.075,
+            scale * 0.02,
+            0,
+            "lats",
+            emg.lats,
+          );
+
+          // Trapézio Superior bilateral
+          drawMuscleBelly(
+            ctx,
+            originX + side * scale * 0.03,
+            yHead + scale * 0.04,
+            sx,
+            yShoulder,
+            scale * 0.035,
+            scale * 0.065,
+            scale * 0.04,
+            0,
+            "traps",
+            emg.traps,
+          );
+
+          // Braços e Antebraços
+          drawMuscleBelly(
+            ctx,
+            sx,
+            yShoulder,
+            ex,
+            yElbow,
+            scale * 0.045,
+            scale * 0.06,
+            scale * 0.035,
+            0,
+            "arms",
+            emg.arms,
+          );
+          drawMuscleBelly(
+            ctx,
+            ex,
+            yElbow,
+            wx,
+            yWrist,
+            scale * 0.038,
+            scale * 0.05,
+            scale * 0.025,
+            0,
+            "arms",
+            emg.arms,
+          );
+
+          // Deltoide Bilateral
+          drawMuscleBelly(
+            ctx,
+            sx,
+            yShoulder - scale * 0.01,
+            lerp(sx, ex, 0.4),
+            lerp(yShoulder, yElbow, 0.4),
+            scale * 0.075,
+            scale * 0.085,
+            scale * 0.03,
+            0,
+            "delts",
+            emg.delts,
+          );
+        });
+
+        // BARRA OLÍMPICA HORIZONTAL E ANILHAS EM PERFIL (Vista Frontal)
+        const barHalfWidth = scale * 0.92;
+        ctx.save();
+        // Eixo de aço
+        ctx.beginPath();
+        ctx.moveTo(originX - barHalfWidth, yWrist);
+        ctx.lineTo(originX + barHalfWidth, yWrist);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.shadowColor = "rgba(255,255,255,0.5)";
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+
+        // Anilhas Olímpicas nas duas extremidades (Vermelha 25kg + Azul 20kg + Amarela 15kg)
+        const plateRadius = scale * 0.225;
+        [-1, 1].forEach((side) => {
+          const baseSleeveX = originX + side * (scale * 0.64);
+          const plates = [
+            { color: "#ef4444", w: scale * 0.045, h: plateRadius * 2 },
+            { color: "#3b82f6", w: scale * 0.038, h: plateRadius * 1.96 },
+            { color: "#eab308", w: scale * 0.032, h: plateRadius * 1.9 },
+          ];
+          let offset = 0;
+          plates.forEach((pl) => {
+            const px =
+              side === 1 ? baseSleeveX + offset : baseSleeveX - offset - pl.w;
+            ctx.fillStyle = pl.color;
+            ctx.beginPath();
+            ctx.roundRect(px, yWrist - pl.h / 2, pl.w, pl.h, 4);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.6)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            offset += pl.w + 2;
+          });
+        });
+        ctx.restore();
+      }
+
+      // Função Mestra de Desenho do Frame
+      function renderScene() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        if (
+          canvas.width !== Math.floor(rect.width * dpr) ||
+          canvas.height !== Math.floor(rect.height * dpr)
+        ) {
+          canvas.width = Math.floor(rect.width * dpr);
+          canvas.height = Math.floor(rect.height * dpr);
+        }
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        const width = rect.width;
+        const height = rect.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        const floorY = height * 0.87;
+        const originX = width * 0.5;
+        const scale = (height * 0.72) / 2.0; // Escala de 2.0 metros cabendo confortavelmente
+
+        const interp = getInterpolatedState(state.progress);
+
+        // 1. Ambiente e Grade
+        drawEnvironment(ctx, width, height, originX, floorY, scale);
+
+        // 2. Vetor de Força de Reação do Solo
+        drawForceVector(ctx, originX, floorY, scale, interp);
+
+        // 3. Manequim Anatômico (Sagital ou Coronal)
+        if (state.cameraView === "side") {
+          drawMannequinSideView(ctx, originX, floorY, scale, interp);
+        } else {
+          drawMannequinFrontView(ctx, originX, floorY, scale, interp);
+        }
+
+        ctx.restore();
+
+        // 4. Atualizar Interface e Barras de EMG
+        updateHUDAndDashboard(interp);
+      }
+
+      /*************************************************************************
+       * 6. ATUALIZAÇÃO DO DASHBOARD, BARRAS EMG E CONTROLES DE UI
+       *************************************************************************/
+      function initMuscleDashboard() {
+        const container = document.getElementById("muscleDashboardList");
+        container.innerHTML = "";
+
+        MUSCLE_GROUPS.forEach((m) => {
+          const row = document.createElement("div");
+          row.id = `muscle-row-${m.id}`;
+          row.className =
+            "muscle-row cursor-pointer rounded-xl p-2.5 bg-slate-900/65 border border-slate-800/80 flex flex-col gap-1.5";
+          row.onmouseenter = () => {
+            state.hoveredMuscle = m.id;
+            updateCallout(m.id);
+            if (!state.isPlaying) renderScene();
+          };
+          row.onmouseleave = () => {
+            state.hoveredMuscle = null;
+            updateCallout(state.selectedMuscle);
+            if (!state.isPlaying) renderScene();
+          };
+          row.onclick = () =>
+            selectMuscle(state.selectedMuscle === m.id ? null : m.id);
+
+          row.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span id="dot-${m.id}" class="w-2.5 h-2.5 rounded-full shadow-sm"></span>
+                            <div>
+                                <div class="text-xs font-bold text-slate-100 leading-none">${m.name}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${m.subtitle}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span id="badge-${m.id}" class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Moderado</span>
+                            <span id="val-${m.id}" class="mono text-xs font-extrabold text-white w-9 text-right">0%</span>
+                        </div>
+                    </div>
+                    <div class="w-full h-2 rounded-full bg-slate-950 overflow-hidden p-0.5 border border-slate-800/70">
+                        <div id="bar-${m.id}" class="h-full rounded-full transition-all duration-75" style="width: 0%"></div>
+                    </div>
+                `;
+          container.appendChild(row);
+        });
+      }
+
+      function updateHUDAndDashboard(interp) {
+        // HUD Superior
+        document.getElementById("hudPhaseTitle").textContent = interp.title;
+        document.getElementById("hudKneeAngle").textContent =
+          `${interp.kneeAngle}°`;
+        document.getElementById("hudHipAngle").textContent =
+          `${interp.hipAngle}°`;
+        document.getElementById("hudBarHeight").textContent =
+          `${interp.barHeightM.toFixed(2)}m`;
+        document.getElementById("hudBarVel").textContent =
+          `${interp.barVel >= 0 ? "+" : ""}${interp.barVel.toFixed(2)} m/s`;
+
+        // Slider & Tempo (Simulando ~1.65s de duração total do Snatch)
+        const slider = document.getElementById("timelineSlider");
+        slider.value = Math.round(interp.progress * 1000);
+        const timeSec = (interp.progress * 1.65).toFixed(2);
+        document.getElementById("progressLabel").textContent =
+          `${Math.round(interp.progress * 100)}% (${timeSec}s)`;
+
+        // Card Cinesiológico da Fase
+        document.getElementById("phaseDetailTitle").textContent = interp.title;
+        document.getElementById("phaseActionType").textContent =
+          interp.actionType;
+        document.getElementById("phaseDetailDesc").textContent = interp.desc;
+
+        // Botões de Fase Ativa
+        for (let i = 0; i < 6; i++) {
+          const btn = document.getElementById(`phaseBtn-${i}`);
+          if (btn) {
+            if (i === interp.phaseIndex) btn.classList.add("active");
+            else btn.classList.remove("active");
+          }
+        }
+
+        // Barras de Ativação Muscular EMG
+        MUSCLE_GROUPS.forEach((m) => {
+          const val = interp.emg[m.id] || 0;
+          const color = getThermalColor(val, 1);
+
+          const barEl = document.getElementById(`bar-${m.id}`);
+          const valEl = document.getElementById(`val-${m.id}`);
+          const dotEl = document.getElementById(`dot-${m.id}`);
+          const badgeEl = document.getElementById(`badge-${m.id}`);
+          const rowEl = document.getElementById(`muscle-row-${m.id}`);
+
+          if (barEl) {
+            barEl.style.width = `${val}%`;
+            barEl.style.backgroundColor = color;
+            barEl.style.boxShadow = val > 80 ? `0 0 10px ${color}` : "none";
+          }
+          if (valEl) {
+            valEl.textContent = `${val}%`;
+            valEl.style.color = val > 85 ? "#fda4af" : "#f8fafc";
+          }
+          if (dotEl) {
+            dotEl.style.backgroundColor = color;
+            dotEl.style.boxShadow = `0 0 8px ${color}`;
+          }
+          if (badgeEl) {
+            let label = "Baixa";
+            if (val >= 90) label = "PICO MÁX";
+            else if (val >= 75) label = "Alta";
+            else if (val >= 50) label = "Moderada";
+            badgeEl.textContent = label;
+            badgeEl.style.color = color;
+          }
+          if (rowEl) {
+            if (state.selectedMuscle === m.id) rowEl.classList.add("active");
+            else rowEl.classList.remove("active");
+          }
+        });
+
+        const activeM = state.hoveredMuscle || state.selectedMuscle;
+        if (activeM) updateCallout(activeM, interp);
+      }
+
+      function updateCallout(muscleId, interp = null) {
+        const callout = document.getElementById("muscleCallout");
+        if (!muscleId) {
+          callout.classList.add("hidden");
+          return;
+        }
+        const mObj = MUSCLE_GROUPS.find((m) => m.id === muscleId);
+        if (!mObj) return;
+
+        const currentInterp = interp || getInterpolatedState(state.progress);
+        const val = currentInterp.emg[muscleId];
+
+        callout.classList.remove("hidden");
+        document.getElementById("calloutMuscleName").textContent = mObj.name;
+        const valBadge = document.getElementById("calloutMuscleVal");
+        valBadge.textContent = `${val}% EMG`;
+        valBadge.style.color = getThermalColor(val, 1);
+        document.getElementById("calloutMuscleRole").textContent =
+          mObj.roleByPhase[currentInterp.phaseIndex];
+      }
+
+      function selectMuscle(muscleId) {
+        state.selectedMuscle = muscleId;
+        const clearBtn = document.getElementById("btnClearHighlight");
+        if (muscleId) clearBtn.classList.remove("hidden");
+        else clearBtn.classList.add("hidden");
+        updateCallout(muscleId);
+        renderScene();
+      }
+
+      /*************************************************************************
+       * 7. CONTROLES DE REPRODUÇÃO E INTERATIVIDADE
+       *************************************************************************/
+      function togglePlay() {
+        state.isPlaying = !state.isPlaying;
+        updatePlayButtonUI();
+      }
+
+      function updatePlayButtonUI() {
+        const iconPlay = document.getElementById("iconPlay");
+        const iconPause = document.getElementById("iconPause");
+        const txt = document.getElementById("txtPlayPause");
+        if (state.isPlaying) {
+          iconPlay.classList.add("hidden");
+          iconPause.classList.remove("hidden");
+          txt.textContent = "Pausar";
+        } else {
+          iconPlay.classList.remove("hidden");
+          iconPause.classList.add("hidden");
+          txt.textContent = "Reproduzir";
+        }
+      }
+
+      function onSliderInput(val) {
+        state.isPlaying = false;
+        updatePlayButtonUI();
+        state.progress = parseFloat(val) / 1000;
+        renderScene();
+      }
+
+      function jumpToProgress(targetP) {
+        state.isPlaying = false;
+        updatePlayButtonUI();
+        state.progress = targetP;
+        renderScene();
+      }
+
+      function stepFrame(delta) {
+        state.isPlaying = false;
+        updatePlayButtonUI();
+        state.progress = (state.progress + delta + 1.0) % 1.0;
+        renderScene();
+      }
+
+      function setSpeed(spd) {
+        state.speed = spd;
+        document.querySelectorAll(".speed-btn").forEach((btn) => {
+          btn.className =
+            "speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono text-slate-400 hover:text-white";
+        });
+        const activeBtn = document.getElementById(`spd-${spd}`);
+        if (activeBtn) {
+          activeBtn.className =
+            "speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono bg-slate-800 text-sky-400 font-bold";
+        }
+      }
+
+      function setCameraView(view) {
+        state.cameraView = view;
+        const btnSide = document.getElementById("btnViewSide");
+        const btnFront = document.getElementById("btnViewFront");
+        if (view === "side") {
+          btnSide.className =
+            "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-sky-500 text-white shadow-sm";
+          btnFront.className =
+            "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white";
+        } else {
+          btnFront.className =
+            "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-sky-500 text-white shadow-sm";
+          btnSide.className =
+            "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white";
+        }
+        renderScene();
+      }
+
+      function toggleOption(optKey) {
+        state[optKey] = !state[optKey];
+        const btnMap = {
+          showBarPath: "btnTogglePath",
+          showAngles: "btnToggleAngles",
+          showVectors: "btnToggleVectors",
+        };
+        const btn = document.getElementById(btnMap[optKey]);
+        if (btn) {
+          btn.style.opacity = state[optKey] ? "1" : "0.45";
+        }
+        renderScene();
+      }
+
+      // Loop principal de animação
+      function animationLoop(timestamp) {
+        if (!state.lastTimestamp) state.lastTimestamp = timestamp;
+        const dt = (timestamp - state.lastTimestamp) / 1000;
+        state.lastTimestamp = timestamp;
+
+        if (state.isPlaying) {
+          // Um ciclo completo em 1x leva ~2.4 segundos + pausa breve no lockout
+          state.progress += dt * 0.38 * state.speed;
+          if (state.progress > 1.06) {
+            state.progress = 0.0;
+          }
+          renderScene();
+        }
+
+        requestAnimationFrame(animationLoop);
+      }
+
+      // Inicialização no carregamento
+      window.onload = function () {
+        buildPrecomputedBarPath();
+        initMuscleDashboard();
+        renderScene();
+        window.addEventListener("resize", renderScene);
+        requestAnimationFrame(animationLoop);
+      };
+    </script>
+  </body>
+</html>
