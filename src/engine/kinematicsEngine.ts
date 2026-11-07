@@ -57,6 +57,16 @@ export class KinematicsEngine {
       head: Vector2D.lerpPoint(k0.joints.head, k1.joints.head, t),
     };
 
+    // Interpolação da perna traseira na fase de tesoura (Split Jerk)
+    if (k0.joints.rearLeg || k1.joints.rearLeg) {
+      const r0 = k0.joints.rearLeg ?? { ankle: k0.joints.ankle, knee: k0.joints.knee };
+      const r1 = k1.joints.rearLeg ?? { ankle: k1.joints.ankle, knee: k1.joints.knee };
+      joints.rearLeg = {
+        ankle: Vector2D.lerpPoint(r0.ankle, r1.ankle, t),
+        knee: Vector2D.lerpPoint(r0.knee, r1.knee, t),
+      };
+    }
+
     // Cálculos reais de ângulos anatômicos por vetores
     const kneeAngle = Math.round(Vector2D.jointAngle(joints.ankle, joints.knee, joints.hip));
     const hipAngle = Math.round(Vector2D.jointAngle(joints.knee, joints.hip, joints.shoulder));

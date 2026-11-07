@@ -12,7 +12,7 @@ describe("MovementRegistry", () => {
 
     const cleanAndJerk = MovementRegistry.get("clean_and_jerk");
     expect(cleanAndJerk.id).toBe("clean_and_jerk");
-    expect(cleanAndJerk.keyframes.length).toBe(6);
+    expect(cleanAndJerk.keyframes.length).toBe(7);
   });
 
   test("cada keyframe possui coordenadas de articulações e dados EMG válidos", () => {
@@ -58,3 +58,16 @@ describe("KinematicsEngine", () => {
     expect(chartData[0]?.barHeight).toBeCloseTo(0.22, 1);
   });
 });
+
+  test("clean & jerk executa entrada profunda em tesoura (split catch)", () => {
+    const cleanAndJerk = MovementRegistry.get("clean_and_jerk");
+    const splitFrame = KinematicsEngine.getInterpolatedFrame(cleanAndJerk, 0.84, 100, 85);
+
+    // O quadril deve ter afundado drasticamente (queda de 0.94m para ~0.56m)
+    expect(splitFrame.joints.hip.y).toBeLessThan(0.60);
+    // Deve possuir perna traseira definida na tesoura
+    expect(splitFrame.joints.rearLeg).toBeDefined();
+    expect(splitFrame.joints.rearLeg?.ankle.x).toBeLessThan(-0.25);
+    // Perna dianteira avançada
+    expect(splitFrame.joints.ankle.x).toBeGreaterThan(0.20);
+  });

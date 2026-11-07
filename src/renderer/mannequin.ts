@@ -64,6 +64,66 @@ export class MannequinRenderer {
     const wrist = j["wrist"]!;
     const head = j["head"]!;
 
+    // 0. Perna Traseira (Split Jerk) - desenhada em camada de fundo
+    const rearAnkle = frame.joints.rearLeg
+      ? { x: originX + frame.joints.rearLeg.ankle.x * scale, y: floorY - frame.joints.rearLeg.ankle.y * scale }
+      : null;
+    const rearKnee = frame.joints.rearLeg
+      ? { x: originX + frame.joints.rearLeg.knee.x * scale, y: floorY - frame.joints.rearLeg.knee.y * scale }
+      : null;
+
+    if (rearAnkle && rearKnee && Math.hypot(rearAnkle.x - ankle.x, rearAnkle.y - ankle.y) > scale * 0.08) {
+      // Sapatilha de LPO traseira (calcanhar elevado na flexão plantar)
+      ctx.save();
+      ctx.fillStyle = "#0f172a";
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(rearAnkle.x - scale * 0.04, floorY);
+      ctx.lineTo(rearAnkle.x + scale * 0.08, floorY);
+      ctx.lineTo(rearAnkle.x + scale * 0.02, rearAnkle.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Ossos da perna traseira
+      MannequinRenderer.drawBoneSegment(ctx, rearAnkle, rearKnee, scale * 0.04);
+      MannequinRenderer.drawBoneSegment(ctx, rearKnee, hip, scale * 0.05);
+
+      // Músculos da perna traseira com tom recuado
+      MuscleRenderer.drawBelly(
+        ctx,
+        rearKnee.x,
+        rearKnee.y,
+        rearAnkle.x,
+        rearAnkle.y,
+        scale * 0.025,
+        scale * 0.05,
+        scale * 0.015,
+        scale * 0.025,
+        "calves",
+        emg.calves * 0.75,
+        selectedMuscle,
+        hoveredMuscle
+      );
+      MuscleRenderer.drawBelly(
+        ctx,
+        hip.x,
+        hip.y,
+        rearKnee.x,
+        rearKnee.y,
+        scale * 0.04,
+        scale * 0.07,
+        scale * 0.03,
+        -scale * 0.025,
+        "quads",
+        emg.quads * 0.75,
+        selectedMuscle,
+        hoveredMuscle
+      );
+    }
+
     // 1. Sapatilha de LPO (Salto elevado de madeira, solado antiderrapante)
     ctx.save();
     ctx.fillStyle = "#1e293b";
@@ -318,6 +378,9 @@ export class MannequinRenderer {
 
     // 5. Marcadores de Articulações
     const jointsToDraw = [ankle, knee, hip, shoulder, elbow, wrist];
+    if (rearAnkle && rearKnee && Math.hypot(rearAnkle.x - ankle.x, rearAnkle.y - ankle.y) > scale * 0.08) {
+      jointsToDraw.push(rearAnkle, rearKnee);
+    }
     for (const pt of jointsToDraw) {
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);

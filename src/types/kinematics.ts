@@ -11,6 +11,10 @@ export interface Joints {
   elbow: Point2D;
   wrist: Point2D;
   head: Point2D;
+  rearLeg?: {
+    ankle: Point2D;
+    knee: Point2D;
+  };
 }
 
 export type JointName = keyof Joints;
