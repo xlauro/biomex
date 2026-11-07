@@ -1,0 +1,8 @@
+services:
+  biomex:
+    build: .
+    image: biomex:latest
+    container_name: biomex
+    restart: unless-stopped
+    ports:
+      - "8080:80"
