@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KineLab LPO — Simulador Biomecânico de Levantamento de Peso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+    <!-- Top Header -->
+    <header class="border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md sticky top-0 z-30">
+      <div class="max-w-[1700px] mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-4">
+        <!-- Logo & Movement Selector -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 via-blue-600 to-rose-600 flex items-center justify-center shadow-lg shadow-sky-500/20 border border-white/10">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-sky-400 bg-clip-text text-transparent">
+                KineLab LPO <span class="font-light text-slate-500">|</span>
+              </h1>
+              <select
+                id="selectMovement"
+                class="bg-slate-900 border border-slate-700/80 text-sky-400 font-semibold rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
+              >
+                <!-- Populated via TS -->
+              </select>
+              <span class="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                EMG Thermal Map
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">
+              Análise Cinemática Vetorial, Dinâmica da Barra e Recrutamento Muscular
+            </p>
+          </div>
+        </div>
+
+        <!-- View & Overlay Controls -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Camera Switch -->
+          <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+            <button
+              id="btnViewSide"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-sky-500 text-white shadow-sm"
+            >
+              Vista Sagital
+            </button>
+            <button
+              id="btnViewFront"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white"
+            >
+              Vista Coronal
+            </button>
+          </div>
+
+          <!-- Overlay Toggles -->
+          <button
+            id="btnTogglePath"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5 transition-all"
+          >
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Curva-S
+          </button>
+
+          <button
+            id="btnToggleAngles"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-sky-500/40 bg-sky-500/10 text-sky-300 flex items-center gap-1.5 transition-all"
+          >
+            Ângulos
+          </button>
+
+          <button
+            id="btnToggleVectors"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-amber-500/40 bg-amber-500/10 text-amber-300 flex items-center gap-1.5 transition-all"
+          >
+            Vetor FRS
+          </button>
+
+          <button
+            id="btnToggleCoP"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-rose-500/40 bg-rose-500/10 text-rose-300 flex items-center gap-1.5 transition-all"
+          >
+            Pressão (CoP)
+          </button>
+
+          <button
+            id="btnToggleGhosts"
+            class="px-3 py-1.5 rounded-xl text-xs font-medium border border-purple-500/40 bg-purple-500/10 text-purple-300 flex items-center gap-1.5 transition-all"
+          >
+            Fantasmas
+          </button>
+
+          <!-- Export Actions -->
+          <div class="flex items-center gap-1.5 ml-2 border-l border-slate-800 pl-2">
+            <button
+              id="btnResetCamera"
+              title="Resetar Zoom e Câmera"
+              class="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+            <button
+              id="btnExportSnapshot"
+              title="Exportar Captura PNG"
+              class="px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition-all flex items-center gap-1"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Foto
+            </button>
+            <button
+              id="btnExportCSV"
+              title="Exportar Telemetria CSV"
+              class="px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition-all flex items-center gap-1"
+            >
+              CSV
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="max-w-[1700px] w-full mx-auto px-4 sm:px-6 py-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <!-- LEFT COLUMN: Canvas, Timeline & Telemetry Charts (8 cols) -->
+      <div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+        <!-- Canvas Wrapper -->
+        <div class="relative rounded-2xl overflow-hidden glass-panel border border-slate-800/90 shadow-2xl">
+          <!-- Top Floating Telemetry Bar -->
+          <div class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+            <!-- Phase Badge -->
+            <div class="bg-slate-950/85 backdrop-blur-md border border-slate-700/70 rounded-xl px-3.5 py-2 flex items-center gap-3 shadow-lg">
+              <div id="phasePulse" class="w-3 h-3 rounded-full bg-sky-400 shadow-[0_0_12px_#38bdf8] animate-pulse"></div>
+              <div>
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                  Fase Biomecânica Atual
+                </div>
+                <div id="hudPhaseTitle" class="text-sm sm:text-base font-bold text-white">
+                  1. Posição Inicial (Setup)
+                </div>
+              </div>
+            </div>
+
+            <!-- Telemetry Pills -->
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Joelho</div>
+                <div id="hudKneeAngle" class="mono text-sm font-bold text-sky-400">68°</div>
+              </div>
+              <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Quadril</div>
+                <div id="hudHipAngle" class="mono text-sm font-bold text-amber-400">54°</div>
+              </div>
+              <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Altura Barra</div>
+                <div id="hudBarHeight" class="mono text-sm font-bold text-emerald-400">0.22m</div>
+              </div>
+              <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Vel. Vertical</div>
+                <div id="hudBarVel" class="mono text-sm font-bold text-rose-400">0.00 m/s</div>
+              </div>
+              <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                <div class="text-[10px] text-slate-400 uppercase">Potência</div>
+                <div id="hudPower" class="mono text-sm font-bold text-yellow-400">0 W</div>
+              </div>
+              <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-1.5 text-right">
+                <div class="text-[10px] text-slate-400 uppercase">FRS Solo</div>
+                <div id="hudGRF" class="mono text-sm font-bold text-purple-400">1.0x</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thermal Scale Legend (Bottom Left) -->
+          <div class="absolute bottom-3 left-3 z-10 bg-slate-950/85 backdrop-blur-md border border-slate-800/80 rounded-xl px-3 py-2 pointer-events-none">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">
+              Escala Térmica de Exigência (EMG %)
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] mono text-slate-400">10% Baixa</span>
+              <div class="w-36 sm:w-44 h-2.5 rounded-full bg-gradient-to-r from-blue-700 via-cyan-400 via-yellow-400 via-orange-500 to-rose-600 shadow-inner"></div>
+              <span class="text-[10px] mono text-rose-400 font-bold">100% Pico</span>
+            </div>
+          </div>
+
+          <!-- Muscle Floating Callout (Bottom Right) -->
+          <div id="muscleCallout" class="hidden absolute bottom-3 right-3 z-10 max-w-xs bg-slate-950/95 backdrop-blur-md border border-sky-500/50 rounded-xl p-3 shadow-xl">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span id="calloutMuscleName" class="text-xs font-bold text-sky-400 uppercase tracking-wide">Quadríceps</span>
+              <span id="calloutMuscleVal" class="mono text-xs font-extrabold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300">95% EMG</span>
+            </div>
+            <p id="calloutMuscleRole" class="text-[11px] text-slate-300 leading-relaxed"></p>
+          </div>
+
+          <!-- Main Interactive HTML5 Canvas -->
+          <div class="w-full h-[470px] sm:h-[550px] relative bg-gradient-to-b from-[#070b14] via-[#0b1324] to-[#090d16]">
+            <canvas id="biomechCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+          </div>
+        </div>
+
+        <!-- Scrubber & Playback Controls Card -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col gap-3.5">
+          <div class="flex justify-between items-center text-xs text-slate-400 px-1">
+            <span class="font-medium text-slate-300">
+              Linha do Tempo Cinemática (Arraste para inspecionar cada milissegundo)
+            </span>
+            <span id="progressLabel" class="mono font-bold text-sky-400 text-sm">0% (0.00s)</span>
+          </div>
+          <div class="relative flex items-center py-1">
+            <input id="timelineSlider" type="range" min="0" max="1000" value="0" class="w-full z-10" />
+          </div>
+
+          <!-- Transport Buttons & Speed -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-800/80">
+            <div class="flex items-center gap-2">
+              <button
+                id="btnPlayPause"
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-sky-500/25 transition-all"
+              >
+                <svg id="iconPlay" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <svg id="iconPause" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+                <span id="txtPlayPause">Pausar</span>
+              </button>
+
+              <button
+                id="btnStepBack"
+                title="Voltar Frame"
+                class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                id="btnStepForward"
+                title="Avançar Frame"
+                class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <!-- Speed Selector -->
+              <div class="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-800 ml-1">
+                <button id="spd-0.2" class="speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono text-slate-400 hover:text-white">
+                  0.2x
+                </button>
+                <button id="spd-0.45" class="speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono bg-slate-800 text-sky-400 font-bold border border-sky-500/30">
+                  0.5x
+                </button>
+                <button id="spd-1" class="speed-btn px-2.5 py-1 rounded-lg text-[11px] font-mono text-slate-400 hover:text-white">
+                  1.0x
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Phase Buttons -->
+            <div id="phaseButtonsContainer" class="flex flex-wrap items-center gap-1.5">
+              <!-- Populated via TS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Kinematic Charts (Velocity, Power, Height) -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h3 class="text-xs font-bold text-white flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              Gráfico Cinemático em Tempo Real (Velocidade & Potência Instantânea)
+            </h3>
+            <span class="text-[10px] text-slate-400">Sincronizado frame a frame</span>
+          </div>
+          <div class="w-full h-32 relative rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800/80">
+            <canvas id="telemetryChartCanvas" class="w-full h-full block"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Load Config, Phase Kinesiology & Muscle EMG (4 cols) -->
+      <div class="lg:col-span-5 xl:col-span-4 flex flex-col gap-4">
+        <!-- Barbell Load & Athlete Setup Card -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white uppercase tracking-wider">Carga da Barra (Massa Total)</span>
+            <span id="labelBarbellWeight" class="mono text-sm font-extrabold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/30">
+              100 kg
+            </span>
+          </div>
+          <input
+            id="sliderBarbellWeight"
+            type="range"
+            min="20"
+            max="260"
+            step="5"
+            value="100"
+            class="w-full"
+          />
+          <div class="flex items-center justify-between gap-1.5">
+            <button id="weight-preset-60" class="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono text-slate-300">
+              60kg
+            </button>
+            <button id="weight-preset-100" class="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono text-sky-400 font-bold">
+              100kg
+            </button>
+            <button id="weight-preset-140" class="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono text-slate-300">
+              140kg
+            </button>
+            <button id="weight-preset-180" class="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono text-slate-300">
+              180kg
+            </button>
+          </div>
+        </div>
+
+        <!-- Phase Biomechanical Insights Card -->
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-sky-500">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400">
+              Análise Cinesiológica da Fase
+            </span>
+            <span id="phaseActionType" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+              Ação Concêntrica / Isométrica
+            </span>
+          </div>
+          <h2 id="phaseDetailTitle" class="text-base font-bold text-white mb-1">
+            1. Posição Inicial (Setup / Saída)
+          </h2>
+          <p id="phaseDetailDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+        </div>
+
+        <!-- Real-time EMG Muscle Heatmap Dashboard -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                Recrutamento Muscular em Tempo Real
+              </h3>
+              <p class="text-[11px] text-slate-400">
+                Passe o cursor ou clique para destacar no boneco
+              </p>
+            </div>
+            <button id="btnClearHighlight" class="hidden text-[11px] text-sky-400 hover:underline">
+              Limpar filtro
+            </button>
+          </div>
+
+          <!-- Dynamic Muscle List Container -->
+          <div id="muscleDashboardList" class="flex flex-col gap-2 max-h-[400px] overflow-y-auto pr-1">
+            <!-- Populated via TS -->
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
