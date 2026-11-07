@@ -95,3 +95,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: #334155;
   border-radius: 3px;
 }
+
+/* Utilitário para rolagem horizontal suave oculta em mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -19,6 +19,10 @@ export class CanvasManager {
   private isDragging: boolean = false;
   private dragStartX: number = 0;
   private dragStartY: number = 0;
+  private isPinching: boolean = false;
+  private initialPinchDist: number = 0;
+  private initialPinchZoom: number = 1.0;
+  private lastTapTime: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -83,6 +87,73 @@ export class CanvasManager {
     this.canvas.addEventListener("dblclick", () => {
       this.state.resetCamera();
     });
+
+    // Suporte a Toque em Dispositivos Móveis (1 dedo: Pan, 2 dedos: Pinch-to-Zoom)
+    this.canvas.addEventListener(
+      "touchstart",
+      (e: TouchEvent) => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0]!;
+          this.isDragging = true;
+          this.isPinching = false;
+          this.dragStartX = touch.clientX;
+          this.dragStartY = touch.clientY;
+
+          // Double tap para resetar no celular
+          const now = Date.now();
+          if (now - this.lastTapTime < 300) {
+            this.state.resetCamera();
+            this.lastTapTime = 0;
+          } else {
+            this.lastTapTime = now;
+          }
+        } else if (e.touches.length === 2) {
+          this.isDragging = false;
+          this.isPinching = true;
+          const t1 = e.touches[0]!;
+          const t2 = e.touches[1]!;
+          this.initialPinchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          this.initialPinchZoom = this.state.get().zoom;
+        }
+      },
+      { passive: true }
+    );
+
+    this.canvas.addEventListener(
+      "touchmove",
+      (e: TouchEvent) => {
+        if (this.isDragging && e.touches.length === 1) {
+          const touch = e.touches[0]!;
+          const dx = touch.clientX - this.dragStartX;
+          const dy = touch.clientY - this.dragStartY;
+          this.dragStartX = touch.clientX;
+          this.dragStartY = touch.clientY;
+
+          const current = this.state.get();
+          this.state.update({
+            panX: current.panX + dx,
+            panY: current.panY + dy,
+          });
+        } else if (this.isPinching && e.touches.length === 2) {
+          const t1 = e.touches[0]!;
+          const t2 = e.touches[1]!;
+          const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          if (this.initialPinchDist > 0) {
+            const factor = currentDist / this.initialPinchDist;
+            const nextZoom = Math.max(0.6, Math.min(3.5, this.initialPinchZoom * factor));
+            this.state.update({ zoom: nextZoom });
+          }
+        }
+      },
+      { passive: true }
+    );
+
+    const endTouch = () => {
+      this.isDragging = false;
+      this.isPinching = false;
+    };
+    this.canvas.addEventListener("touchend", endTouch);
+    this.canvas.addEventListener("touchcancel", endTouch);
   }
 
   /**
