@@ -102,7 +102,8 @@ export class KinematicChartsUI {
     this.ctx.stroke();
 
     // 3. Linha do Cursor Temporal Atual (Playhead)
-    const playheadX = padLeft + currentProgress * plotW;
+    const clampedProgress = Math.max(0, Math.min(1, currentProgress));
+    const playheadX = padLeft + clampedProgress * plotW;
     this.ctx.save();
     this.ctx.strokeStyle = "#ffffff";
     this.ctx.lineWidth = 2;
@@ -115,7 +116,7 @@ export class KinematicChartsUI {
     // Bolinha luminosa no cursor
     const sampleIdx = Math.min(
       this.chartData.length - 1,
-      Math.floor(currentProgress * this.chartData.length)
+      Math.max(0, Math.floor(clampedProgress * (this.chartData.length - 1)))
     );
     const activeSample = this.chartData[sampleIdx];
     if (activeSample) {

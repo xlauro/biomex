@@ -117,7 +117,7 @@ export class CanvasManager {
     // Aplica translação e escala do Pan e Zoom
     const originX = width * 0.5 + currentState.panX;
     const floorY = height * 0.86 + currentState.panY;
-    const scale = ((height * 0.72) / 2.0) * currentState.zoom;
+    const scale = Math.max(10, ((height * 0.72) / 2.0) * currentState.zoom);
 
     return {
       width,

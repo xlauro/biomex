@@ -73,9 +73,10 @@ function bootstrap(): void {
   // Loop de Renderização Principal
   loop.onRender(() => {
     const s = state.get();
+    const clampedProgress = Math.max(0, Math.min(1, s.progress));
     const frame = KinematicsEngine.getInterpolatedFrame(
       activeMovement,
-      s.progress,
+      clampedProgress,
       s.barbellWeightKg,
       s.athleteWeightKg
     );
@@ -93,7 +94,7 @@ function bootstrap(): void {
         ctx,
         vp,
         precomputedTrajectory,
-        s.progress,
+        clampedProgress,
         activeMovement,
         s.showGhosts
       );
@@ -119,8 +120,8 @@ function bootstrap(): void {
 
     // 2. Atualiza UI e Gráficos
     hudUI.update(frame);
-    timelineUI.update(s.progress, frame.timeSec, frame.phaseIndex, s.isPlaying);
-    chartsUI.render(s.progress);
+    timelineUI.update(clampedProgress, frame.timeSec, frame.phaseIndex, s.isPlaying);
+    chartsUI.render(clampedProgress);
     muscleListUI.update(frame);
   });
 

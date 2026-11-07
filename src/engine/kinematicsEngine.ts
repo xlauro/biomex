@@ -136,19 +136,20 @@ export class KinematicsEngine {
    * Amostra a velocidade da barra interpolada de forma contínua
    */
   public static sampleBarVelocity(movement: Movement, p: number): number {
+    const clampedP = Math.max(0, Math.min(1, p));
     const kfs = movement.keyframes;
     let k0 = kfs[0]!;
     let k1 = kfs[kfs.length - 1]!;
 
     for (let i = 0; i < kfs.length - 1; i++) {
-      if (p >= kfs[i]!.progress && p <= kfs[i + 1]!.progress) {
+      if (clampedP >= kfs[i]!.progress && clampedP <= kfs[i + 1]!.progress) {
         k0 = kfs[i]!;
         k1 = kfs[i + 1]!;
         break;
       }
     }
     const span = k1.progress - k0.progress || 1;
-    const t = Spline.smoothStep((p - k0.progress) / span);
+    const t = Spline.smoothStep((clampedP - k0.progress) / span);
     const v0 = k0.targetVelocity ?? 0;
     const v1 = k1.targetVelocity ?? 0;
     return Vector2D.lerp(v0, v1, t);

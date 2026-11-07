@@ -36,28 +36,34 @@ export class SimulationLoop {
   private tick(timestamp: number): void {
     if (!this.isRunning) return;
 
-    const dt = Math.min(0.1, (timestamp - this.lastTimestamp) / 1000);
-    this.lastTimestamp = timestamp;
+    try {
+      const dt = Math.min(0.1, (timestamp - this.lastTimestamp) / 1000);
+      this.lastTimestamp = timestamp;
 
-    const current = this.state.get();
+      const current = this.state.get();
 
-    if (current.isPlaying) {
-      // Ciclo completo em 1x velocidade padrão
-      const progressDelta = dt * 0.45 * current.speed;
-      let nextProgress = current.progress + progressDelta;
+      if (current.isPlaying) {
+        // Ciclo completo em 1x velocidade padrão
+        const progressDelta = dt * 0.45 * current.speed;
+        let nextProgress = current.progress + progressDelta;
 
-      if (nextProgress > 1.05) {
-        nextProgress = 0.0;
+        if (nextProgress > 1.05) {
+          nextProgress = 0.0;
+        }
+
+        this.state.update({ progress: nextProgress });
       }
 
-      this.state.update({ progress: nextProgress });
+      // Disparar renderizadores
+      for (const callback of this.callbacks) {
+        callback(dt);
+      }
+    } catch (err) {
+      console.error("SimulationLoop error:", err);
+    } finally {
+      if (this.isRunning) {
+        this.animationFrameId = requestAnimationFrame(this.tick);
+      }
     }
-
-    // Disparar renderizadores
-    for (const callback of this.callbacks) {
-      callback(dt);
-    }
-
-    this.animationFrameId = requestAnimationFrame(this.tick);
   }
 }

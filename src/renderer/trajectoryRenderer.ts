@@ -77,9 +77,14 @@ export class TrajectoryRenderer {
     // 3. Trajetória ativa brilhante até o instante atual
     ctx.setLineDash([]);
     ctx.beginPath();
-    const maxIdx = Math.floor(currentProgress * (trajectory.length - 1));
+    const clampedP = Math.max(0, Math.min(1, currentProgress));
+    const maxIdx = Math.min(
+      trajectory.length - 1,
+      Math.floor(clampedP * (trajectory.length - 1))
+    );
     for (let i = 0; i <= maxIdx; i++) {
-      const pt = trajectory[i]!;
+      const pt = trajectory[i];
+      if (!pt) continue;
       const bx = originX + pt.x * scale;
       const by = floorY - pt.y * scale;
       if (i === 0) ctx.moveTo(bx, by);
